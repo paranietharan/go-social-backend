@@ -1,6 +1,7 @@
 package main
 
 import (
+	"go-social-backend/internal/db"
 	"go-social-backend/internal/env"
 	"go-social-backend/internal/store"
 	"log"
@@ -10,7 +11,7 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: Error loading .env file:", err)
+		log.Println("Warning: Error loading .env file ::", err)
 	}
 
 	cfg := config{
@@ -23,7 +24,20 @@ func main() {
 		},
 	}
 
-	store := store.NewStorage(nil)
+	db, err := db.New(
+		cfg.db.addr,
+		cfg.db.maxOpenConns,
+		cfg.db.maxIdleConns,
+		cfg.db.maxIdleTime,
+	)
+
+	defer db.Close()
+	log.Println("Database connection pool established!")
+
+	if err != nil {
+		log.Panic(err)
+	}
+	store := store.NewStorage(db)
 
 	app := &application{
 		config: cfg,
@@ -35,11 +49,13 @@ func main() {
 }
 
 func buildDSN() string {
-	return env.GetString("DB_DSN",
+	dsn := env.GetString("DB_DSN",
 		"postgres://"+env.GetString("DB_USER", "postgres")+
 			":"+env.GetString("DB_PASSWORD", "")+
 			"@"+env.GetString("DB_HOST", "localhost")+
 			":"+env.GetString("DB_PORT", "5432")+
 			"/"+env.GetString("DB_NAME", "gosocial")+
 			"?sslmode="+env.GetString("DB_SSLMODE", "disable"))
+	log.Println("Generated DSN:", dsn)
+	return dsn
 }

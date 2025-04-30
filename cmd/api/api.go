@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"go-social-backend/internal/store"
+	"log"
 	"net/http"
 	"time"
 
@@ -38,9 +40,52 @@ func (app *application) mount() http.Handler {
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", app.healthCheckHandler)
+		r.Post("/users", app.createUserHandler)
+		r.Post("/posts", app.createPostHandler)
 	})
 
 	return r
+}
+
+func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request) {
+	var user store.User
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	err := app.store.Users.Create(r.Context(), &user)
+	if err != nil {
+		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(user)
+}
+
+func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
+	var post store.Post
+	if err := json.NewDecoder(r.Body).Decode(&post); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	err := app.store.Posts.Create(r.Context(), &post)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Failed to create post", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(post)
+}
+
+func (app *application) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	resp := map[string]string{"status": "ok"}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (app *application) run(handler http.Handler) error {
