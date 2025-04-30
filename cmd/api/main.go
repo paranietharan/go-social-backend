@@ -10,5 +10,8 @@ func main() {
 		cfg,
 	}
 
-	log.Fatal(app.run())
+	log.Printf("Server has started at %s\n", app.config.addr)
+
+	mux := app.mount()
+	log.Fatal(app.run(mux))
 }
